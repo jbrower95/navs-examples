@@ -1,0 +1,33 @@
+{
+  "name": "navs-aml",
+  "version": "1.0.0",
+  "description": "Anti-Money Laundering (AML) services powered by NAVS - Node-Assisted Verification Service",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json",
+    "contracts"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "test": "node src/test.js",
+    "gen": "npx navs-gen .",
+    "deploy": "forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast --verify --etherscan-api-key $BASESCAN_API_KEY -vvvv && npm run generate-abi",
+    "generate-abi": "node scripts/generate-abi.js"
+  },
+  "keywords": ["navs", "aml", "anti-money-laundering", "sanctions", "compliance", "blockchain"],
+  "author": "Justin Brower",
+  "license": "MIT",
+  "dependencies": {
+    "navs-core": "~0.0.1",
+    "viem": "^2.21.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  }
+}
