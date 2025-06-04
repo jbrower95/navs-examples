@@ -94,7 +94,11 @@ That's it! Make requests with `service.sol`'s generated Library, and then receiv
 
 This allows for map/reduce style transformations, arbitrary slashing and ejection, and other operator management -- all from within TypeScript.
 
-Navs Operators use `npx navskit operator`.
+# Who runs the code?
+
+Operators -- secured by EigenLayer restaking -- run your code with `npx navskit operator`. Your code is sandboxed, and allowed to communicate serializable data back to the chain while it is run.
+
+Anyone can run an operator with `npx navskit operator`. At the moment this is not recommended, as we expect large updates to the operator to appear in the coming days.
 
 
 
