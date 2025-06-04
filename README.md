@@ -1,6 +1,8 @@
-# Navs - "not an avs"
+# Navs - Deploy anything on Ethereum
 
-## Deployments
+[![navskit](https://badge.fury.io/js/navskit.svg)](https://badge.fury.io/js/navskit)
+
+## Quick Reference
 
 | Network | Contract | Address |
 | ------- | -------- | ------- |
@@ -9,12 +11,9 @@
 | Sepolia | DelegationManager | 0xD4A7E1Bd8015057293f0D0A557088c286942e84b |
 | Sepolia | AllocationManager | 0x42583067658071247ec8CE0A516A58f682002d07 |
 | Sepolia | Strategy | 0x424246eF71b01ee33aA33aC590fd9a0855F5eFbc |
-| Base Sepolia | TaskDispatch | 0x1b5CBAe690E05ced9A93B2F901221e72D365c2a9 |
+| Base Sepolia | TaskDispatch | 0xc739e01E8d873700948AD191d64C3FBaB93b1C1A |
 
 
-**Navs CLI**: 
-
-[![navskit](https://badge.fury.io/js/navskit.svg)](https://badge.fury.io/js/navskit)
 
 # Quick Intro
 
