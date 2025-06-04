@@ -14,14 +14,12 @@
 
 **Navs CLI**: 
 
-[![navs-core](https://badge.fury.io/js/navs-core.svg)](https://badge.fury.io/js/navs-core)
-[![navs-cli](https://badge.fury.io/js/navs-cli.svg)](https://badge.fury.io/js/navs-cli)
-[![navs-gen](https://badge.fury.io/js/navs-gen.svg)](https://badge.fury.io/js/navs-gen)
+[![navskit](https://badge.fury.io/js/navskit.svg)](https://badge.fury.io/js/navskit)
 
 # Quick Intro
 
 1. Write any logic, in Ethereum.
-2. Annotate it with `@navs`, and generate code with `npx navs-gen .`
+2. Annotate it with `@navs`, and generate code with `npx navskit gen`
 3. Push your package to npm.
 
 That's it - run any code you want from within a smart contract.
@@ -40,14 +38,14 @@ Consensus can also take multiple answers into account, and output a completely d
 
 1. Install the library.
 ```bash
-npm i navs-core
+npm i navskit
 ```
 
 2. Write your logic -- preferably as static functions within a class. (NOTE: Make sure your project has `experimentalDecorators` enabled in your TypeScript settings.)
 
 ```js
 
-import { navs as setup } from 'navs-core';
+import { navs as setup } from 'navskit';
 import * as Pkg from '../package.json';
 
 // navs setup
@@ -71,7 +69,7 @@ export class BitcoinOracle {
 
 This example calls out to the Coinbase API, loads the price of Bitcoin, and computes the amount in pennies. You might want to call this somewhere onchain, to check whether to do something -- maybe a trading strategy, or a Uniswap hook!
 
-3. Use `npx navs-gen`, and you'll see a `contracts` directory appear. 
+3. Use `npx navskit gen`, and you'll see a `contracts` directory appear. 
 
 Congrats, you're done! Publish this source code, and anyone can import your `contracts` and invoke this call from onchain.
 
@@ -97,7 +95,7 @@ That's it! Make requests with `service.sol`'s generated Library, and then receiv
 
 This allows for map/reduce style transformations, arbitrary slashing and ejection, and other operator management -- all from within TypeScript.
 
-Navs Operators use the `@navs` CLI.
+Navs Operators use `npx navskit operator`.
 
 
 

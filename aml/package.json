@@ -13,7 +13,7 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "test": "node src/test.js",
-    "gen": "npx navs-gen .",
+    "gen": "npx navskit gen",
     "deploy": "forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC_URL --broadcast --verify --etherscan-api-key $BASESCAN_API_KEY -vvvv && npm run generate-abi",
     "generate-abi": "node scripts/generate-abi.js"
   },
@@ -21,7 +21,7 @@
   "author": "Justin Brower",
   "license": "MIT",
   "dependencies": {
-    "navs-core": "~0.0.1",
+    "navskit": "~0.0.6",
     "viem": "^2.21.1",
     "dotenv": "^16.4.5"
   },

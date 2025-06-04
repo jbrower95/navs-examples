@@ -5,7 +5,7 @@
  * Functions are executed by a decentralized network of operators with economic stake backing the results.
  */
 
-import { navs as setup } from 'navs-core';
+import { navs as setup } from 'navskit';
 import { getAddress } from 'viem';
 import * as dotenv from 'dotenv';
 
