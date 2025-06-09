@@ -23,8 +23,8 @@ contract UnemploymentCoin is ERC20, NavsReceiver {
     mapping(address => bool) public claimed;
     
     // AML compliance tracking
-    mapping(bytes32 => PendingTransfer) public pendingTransfers;
-    mapping(address => bytes32) public activeChecks;
+    mapping(uint256 => PendingTransfer) public pendingTransfers;
+    mapping(address => uint256) public activeChecks;
     
     struct PendingTransfer {
         address from;
@@ -46,7 +46,7 @@ contract UnemploymentCoin is ERC20, NavsReceiver {
     uint256 public constant AML_CHECK_STAKE = 0.01 ether; // Stake for AML checks
     
     // Events (Custom only - ERC20 events inherited)
-    event ClaimInitiated(address indexed claimant, bytes32 indexed taskId);
+    event ClaimInitiated(address indexed claimant, uint256 indexed taskId);
     event ClaimApproved(address indexed claimant, uint256 amount);
     event ClaimRejected(address indexed claimant, string reason);
     event TransferBlocked(address indexed from, address indexed to, uint256 amount, string reason);
@@ -96,12 +96,12 @@ contract UnemploymentCoin is ERC20, NavsReceiver {
         }
         
         // Check if AML check already in progress
-        if (activeChecks[claimant] != bytes32(0)) {
+        if (activeChecks[claimant] != 0) {
             revert AMLCheckInProgress();
         }
         
         // Initiate AML compliance check via NAVS
-        bytes32 taskId = NavsAml.isAddressSanctioned(claimant, AML_CHECK_STAKE);
+        uint256 taskId = isAddressSanctioned(claimant, AML_CHECK_STAKE);
         
         // Track the pending claim
         pendingTransfers[taskId] = PendingTransfer({
@@ -121,11 +121,11 @@ contract UnemploymentCoin is ERC20, NavsReceiver {
     function getClaimStatus(address user) external view returns (
         bool hasClaimed,
         bool hasActiveCheck,
-        bytes32 activeTaskId
+        uint256 activeTaskId
     ) {
         hasClaimed = claimed[user];
         activeTaskId = activeChecks[user];
-        hasActiveCheck = activeTaskId != bytes32(0);
+        hasActiveCheck = activeTaskId != 0;
     }
     
     // ============ AML-COMPLIANT TRANSFERS ============
@@ -149,12 +149,12 @@ contract UnemploymentCoin is ERC20, NavsReceiver {
         }
         
         // Check if sender has pending AML check
-        if (activeChecks[from] != bytes32(0)) {
+        if (activeChecks[from] != 0) {
             revert AMLCheckInProgress();
         }
         
         // Initiate AML check for the sender
-        bytes32 taskId = NavsAml.isAddressSanctioned(from, AML_CHECK_STAKE);
+        uint256 taskId = isAddressSanctioned(from, AML_CHECK_STAKE);
         
         // Track the pending transfer
         pendingTransfers[taskId] = PendingTransfer({
@@ -182,8 +182,8 @@ contract UnemploymentCoin is ERC20, NavsReceiver {
      * This callback is automatically called when EigenLayer validators
      * complete the OFAC sanctions verification for an address.
      */
-    function _onIsAddressSanctioned(
-        bytes32 taskId, 
+    function onIsAddressSanctioned(
+        uint256 taskId, 
         address address_param, 
         bool result, 
         string memory error

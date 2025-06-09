@@ -1,0 +1,3 @@
+[submodule "aml/lib/navs"]
+	path = aml/lib/navs
+	url = https://github.com/Layr-Labs/navs
