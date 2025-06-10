@@ -10,6 +10,8 @@ interface TerminalLine {
   type: 'command' | 'output' | 'error' | 'system' | 'typing'
 }
 
+const BLOCK_TAG = 'pending';
+
 const ALL_COMMANDS: Record<string, string> = {
   help: 'Display available commands',
   login: 'Connect your wallet',
@@ -47,7 +49,7 @@ export default function Terminal() {
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   const { writeContract, data: hash } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed, isError, error } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isError, error } = useWaitForTransactionReceipt({
     hash,
   })
 
@@ -80,7 +82,7 @@ export default function Terminal() {
     abi: FAIRLAUNCH_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    blockTag: 'latest'
+    blockTag: BLOCK_TAG
   })
 
   const { data: userMinted, refetch: refetchUserMinted } = useReadContract({
@@ -88,7 +90,7 @@ export default function Terminal() {
     abi: FAIRLAUNCH_ABI,
     functionName: 'getUserMinted',
     args: address ? [address] : undefined,
-    blockTag: 'latest'
+    blockTag: BLOCK_TAG
   })
 
   const { data: mintStatus, refetch: refetchMintStatus } = useReadContract({
@@ -96,7 +98,7 @@ export default function Terminal() {
     abi: FAIRLAUNCH_ABI,
     functionName: 'getMintStatus',
     args: address ? [address] : undefined,
-    blockTag: 'latest'
+    blockTag: BLOCK_TAG
   })
 
   const addLine = useCallback((text: string, type: TerminalLine['type'] = 'output') => {
@@ -283,14 +285,6 @@ export default function Terminal() {
         await typewriterEffect('Claiming your full allocation...', 'system')
         
         try {
-          writeContract({
-            address: FAIRLAUNCH_CONTRACT_ADDRESS,
-            abi: FAIRLAUNCH_ABI,
-            functionName: 'mint',
-            args: [],
-          })
-
-          // Watch for MintApproved event
           publicClient.watchContractEvent({
             address: FAIRLAUNCH_CONTRACT_ADDRESS,
             abi: FAIRLAUNCH_ABI,
@@ -315,7 +309,6 @@ export default function Terminal() {
             },
           })
 
-          // Watch for MintRejected event
           publicClient.watchContractEvent({
             address: FAIRLAUNCH_CONTRACT_ADDRESS,
             abi: FAIRLAUNCH_ABI,
@@ -334,6 +327,15 @@ export default function Terminal() {
               }
             },
           })
+
+          setIsClaimInProgress(true);
+          writeContract({
+            address: FAIRLAUNCH_CONTRACT_ADDRESS,
+            abi: FAIRLAUNCH_ABI,
+            functionName: 'mint',
+            args: [],
+          })
+          addLine('requesting mint...', 'system');
         } catch (error) {
           await typewriterEffect('✗ Transaction failed', 'error')
           await typewriterEffect(String(error), 'error')
@@ -349,7 +351,7 @@ export default function Terminal() {
         await typewriterEffect(`Command not found: ${command}`, 'error')
         await typewriterEffect('Type "help" for available commands', 'output')
     }
-  }, [addLine, address, publicClient, balance, connect, connectors, disconnect, getAvailableCommands, prompt, isConnected, lines.length, mintStatus, showHelp, typewriterEffect, userMinted, writeContract, isClaimInProgress]);
+  }, [addLine, address, cleanupEventWatchers, refetchBalance, refetchMintStatus, refetchUserMinted, publicClient, balance, connect, connectors, disconnect, getAvailableCommands, prompt, isConnected, lines.length, mintStatus, showHelp, typewriterEffect, userMinted, writeContract, isClaimInProgress]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && input.trim() && !isTyping) {
@@ -406,22 +408,8 @@ export default function Terminal() {
       setIsClaimInProgress(false);
       return;
     }
-    
-    if (isConfirmed && !hasShownConfirmed.current) {
-      hasShownConfirmed.current = true
-      addLine('✓ Transaction confirmed!', 'output')
-      addLine('Token allocation request submitted to NAVS', 'system')
-      addLine('⏳ Waiting for NAVS to process your claim...', 'output')
-      setIsClaimInProgress(true)
-      // Setup event watchers only after transaction confirms
-    }
-    
-    // Reset refs when neither confirming nor confirmed (new transaction)
-    if (!isConfirming && !isConfirmed) {
-      hasShownConfirming.current = false
-      hasShownConfirmed.current = false
-    }
-  }, [isConfirming, publicClient, error, isError, isConfirmed, address, cleanupEventWatchers, refetchMintStatus, refetchUserMinted, refetchBalance, addLine, setIsClaimInProgress])
+
+  }, [isConfirming, publicClient, error, isError, addLine, setIsClaimInProgress])
 
   // Cleanup event watchers on unmount or when claim is no longer in progress
   useEffect(() => {

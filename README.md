@@ -11,7 +11,7 @@
 | Sepolia | DelegationManager | 0xD4A7E1Bd8015057293f0D0A557088c286942e84b |
 | Sepolia | AllocationManager | 0x42583067658071247ec8CE0A516A58f682002d07 |
 | Sepolia | Strategy | 0x424246eF71b01ee33aA33aC590fd9a0855F5eFbc |
-| Base Sepolia | TaskDispatch | 0xc739e01E8d873700948AD191d64C3FBaB93b1C1A |
+| Base Sepolia | TaskDispatch | 0x6f9cfE33a376124237576D36B2bad4F56C875DB1 |
 
 
 
