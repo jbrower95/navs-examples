@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi'
 import { FAIRLAUNCH_CONTRACT_ADDRESS, FAIRLAUNCH_ABI } from './contracts'
 import { formatEther } from 'viem'
 
@@ -23,21 +23,24 @@ export default function Terminal() {
   const [input, setInput] = useState('')
   const [lineCounter, setLineCounter] = useState(0)
   const [isTyping, setIsTyping] = useState(false)
+  const [isClaimInProgress, setIsClaimInProgress] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasInitialized = useRef(false)
+  const eventUnwatchersRef = useRef<(() => void)[]>([])
+  const hasShownConfirming = useRef(false)
+  const hasShownConfirmed = useRef(false)
 
-  // Create dynamic prompt based on wallet connection
-  const getPrompt = () => {
-    if (isConnected && address) {
-      const shortAddress = `${address.slice(0, 4)}..${address.slice(-4)}`
-      return `${shortAddress}@fairlaunch:~# `
-    }
-    return 'guest@fairlaunch:~# '
-  }
+  const publicClient = usePublicClient();
+  const { address, isConnected } = useAccount()
+  const { connect, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
+  const { writeContract, data: hash } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  // Get available commands based on wallet connection status
-  const getAvailableCommands = () => {
+  const getAvailableCommands = useCallback(() => {
     const commands: Record<string, string> = { ...ALL_COMMANDS }
     
     if (isConnected) {
@@ -51,44 +54,111 @@ export default function Terminal() {
     }
     
     return commands
-  }
+  }, [isConnected]);
 
-  const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  })
+  const prompt = useMemo(() => {
+    if (isConnected && address) {
+      const shortAddress = `${address.slice(0, 4)}..${address.slice(-4)}`
+      return `${shortAddress}@fairlaunch:~# `
+    }
+    return 'guest@fairlaunch:~# '
+  }, [isConnected, address])
 
-  // Read contract data
-  const { data: balance } = useReadContract({
+  const { data: balance, refetch: refetchBalance } = useReadContract({
     address: FAIRLAUNCH_CONTRACT_ADDRESS,
     abi: FAIRLAUNCH_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    blockTag: 'latest'
   })
 
-  const { data: userMinted } = useReadContract({
+  const { data: userMinted, refetch: refetchUserMinted } = useReadContract({
     address: FAIRLAUNCH_CONTRACT_ADDRESS,
     abi: FAIRLAUNCH_ABI,
     functionName: 'getUserMinted',
     args: address ? [address] : undefined,
+    blockTag: 'latest'
   })
 
-  const { data: mintStatus } = useReadContract({
+  const { data: mintStatus, refetch: refetchMintStatus } = useReadContract({
     address: FAIRLAUNCH_CONTRACT_ADDRESS,
     abi: FAIRLAUNCH_ABI,
     functionName: 'getMintStatus',
     args: address ? [address] : undefined,
+    blockTag: 'latest'
   })
 
-  const addLine = (text: string, type: TerminalLine['type'] = 'output') => {
+  const addLine = useCallback((text: string, type: TerminalLine['type'] = 'output') => {
     setLines(prev => [...prev, { id: lineCounter, text, type }])
     setLineCounter(prev => prev + 1)
-  }
+  }, [setLines, lineCounter, setLineCounter]);
 
-  const typewriterEffect = async (text: string, type: TerminalLine['type'] = 'output') => {
+  // Clean up event watchers
+  const cleanupEventWatchers = useCallback(() => {
+    eventUnwatchersRef.current.forEach(unwatch => {
+      try {
+        unwatch()
+      } catch (error) {
+        console.warn('Error cleaning up event watcher:', error)
+      }
+    })
+    eventUnwatchersRef.current = []
+  }, [])
+
+  // Setup event watchers after mint transaction confirms
+  const setupEventWatchers = useCallback(() => {
+    if (!publicClient || !address) return
+
+    console.log('Setting up event watchers for address:', address)
+
+    // Watch for MintApproved event
+    const unwatchMintApproved = publicClient.watchContractEvent({
+      address: FAIRLAUNCH_CONTRACT_ADDRESS,
+      abi: FAIRLAUNCH_ABI,
+      eventName: 'MintApproved',
+      args: { user: address },
+      onLogs: (logs) => {
+        console.log('MintApproved event received:', logs)
+        if (logs && logs.length > 0) {
+          const amount = (logs[0] as any).args?.amount
+          if (amount) {
+            addLine(`✓ Mint approved! Received ${formatEther(amount)} FAIR tokens`, 'output')
+            // Refresh balances after successful mint
+            refetchBalance()
+            refetchUserMinted()
+            refetchMintStatus()
+            setIsClaimInProgress(false)
+            // Clean up watchers after successful mint
+            cleanupEventWatchers()
+          }
+        }
+      },
+    })
+
+    // Watch for MintRejected event
+    const unwatchMintRejected = publicClient.watchContractEvent({
+      address: FAIRLAUNCH_CONTRACT_ADDRESS,
+      abi: FAIRLAUNCH_ABI,
+      eventName: 'MintRejected',
+      args: { user: address },
+      onLogs: (logs) => {
+        console.log('MintRejected event received:', logs)
+        if (logs && logs.length > 0) {
+          const reason = (logs[0] as any).args?.reason
+          addLine(`✗ Mint rejected: ${reason}`, 'error')
+          setIsClaimInProgress(false)
+          refetchMintStatus()
+          // Clean up watchers after rejection
+          cleanupEventWatchers()
+        }
+      },
+    })
+
+    // Store unwatcher functions
+    eventUnwatchersRef.current = [unwatchMintApproved, unwatchMintRejected]
+  }, [publicClient, address, addLine, refetchBalance, refetchUserMinted, refetchMintStatus, cleanupEventWatchers])
+
+  const typewriterEffect = useCallback(async (text: string, type: TerminalLine['type'] = 'output') => {
     setIsTyping(true)
     const words = text.split(' ')
     let currentText = ''
@@ -114,9 +184,9 @@ export default function Terminal() {
     })
     setLineCounter(prev => prev + 1)
     setIsTyping(false)
-  }
+  }, [lineCounter, setLines, setIsTyping]);
 
-  const showHelp = async () => {
+  const showHelp = useCallback(async () => {
     await typewriterEffect('FAIRLAUNCH TERMINAL v1.0.0', 'system')
     await typewriterEffect('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'system')
     
@@ -136,17 +206,21 @@ export default function Terminal() {
     }
     
     await typewriterEffect('', 'output')
+    await typewriterEffect('This website helps facilitate the claim of an ERC20 whose', 'system')
+    await typewriterEffect('allocation is given by this Typescript package:', 'system')
+    await typewriterEffect('https://www.npmjs.com/package/navs-launchpad?activeTab=code', 'system')
+    await typewriterEffect('', 'output')
     await typewriterEffect(`Contract: ${FAIRLAUNCH_CONTRACT_ADDRESS}`, 'system')
     await typewriterEffect('Network: Base Sepolia (84532)', 'system')
     await typewriterEffect('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'system')
-  }
+  }, [getAvailableCommands, typewriterEffect, address, isConnected]);
 
-  const handleCommand = async (cmd: string) => {
+  const handleCommand = useCallback(async (cmd: string) => {
     const command = cmd.toLowerCase().trim()
     
     // Only show command line if it's not the initial help
     if (cmd !== 'help' || lines.length > 0) {
-      addLine(`${getPrompt()}${cmd}`, 'command')
+      addLine(`${prompt}${cmd}`, 'command')
     }
     
     // Check if command is available for current connection status
@@ -209,6 +283,7 @@ export default function Terminal() {
         break
         
       case 'claim':
+        if (isClaimInProgress) return;
         if (!isConnected) {
           await typewriterEffect('✗ Wallet not connected', 'error')
           break
@@ -230,10 +305,6 @@ export default function Terminal() {
             functionName: 'mint',
             args: [],
           })
-          
-          if (isPending) {
-            await typewriterEffect('Transaction pending...', 'output')
-          }
         } catch (error) {
           await typewriterEffect('✗ Transaction failed', 'error')
           await typewriterEffect(String(error), 'error')
@@ -249,7 +320,7 @@ export default function Terminal() {
         await typewriterEffect(`Command not found: ${command}`, 'error')
         await typewriterEffect('Type "help" for available commands', 'output')
     }
-  }
+  }, [addLine, address, balance, connect, connectors, disconnect, getAvailableCommands, prompt, isConnected, lines.length, mintStatus, showHelp, typewriterEffect, userMinted, writeContract, isClaimInProgress]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && input.trim() && !isTyping) {
@@ -285,19 +356,46 @@ export default function Terminal() {
       hasInitialized.current = true
       handleCommand('help')
     }
-  }, [])
+  })
+
 
   // Handle transaction status
   useEffect(() => {
-    if (isConfirming) {
+    if (isConfirming && !hasShownConfirming.current) {
+      hasShownConfirming.current = true
       addLine('⏳ Waiting for confirmation...', 'output')
     }
     
-    if (isConfirmed) {
+    if (isConfirmed && !hasShownConfirmed.current) {
+      hasShownConfirmed.current = true
       addLine('✓ Transaction confirmed!', 'output')
       addLine('Token allocation request submitted to NAVS', 'system')
+      addLine('⏳ Waiting for NAVS to process your claim...', 'output')
+      setIsClaimInProgress(true)
+      // Setup event watchers only after transaction confirms
+      setupEventWatchers()
     }
-  }, [isConfirming, isConfirmed])
+    
+    // Reset refs when neither confirming nor confirmed (new transaction)
+    if (!isConfirming && !isConfirmed) {
+      hasShownConfirming.current = false
+      hasShownConfirmed.current = false
+    }
+  }, [isConfirming, isConfirmed, addLine, setIsClaimInProgress, setupEventWatchers])
+
+  // Cleanup event watchers on unmount or when claim is no longer in progress
+  useEffect(() => {
+    return () => {
+      cleanupEventWatchers()
+    }
+  }, [cleanupEventWatchers])
+
+  // Clean up watchers if claim is no longer in progress (e.g., user navigates away)
+  useEffect(() => {
+    if (!isClaimInProgress) {
+      cleanupEventWatchers()
+    }
+  }, [isClaimInProgress, cleanupEventWatchers])
 
   return (
     <div className="terminal-container" onClick={handleContainerClick}>
@@ -311,31 +409,33 @@ export default function Terminal() {
       </div>
       
       <div className="terminal-body" ref={terminalRef}>
-        {lines.map((line) => (
-          <div key={line.id} className={`terminal-line ${line.type}`}>
+        {lines.map((line, idx) => (
+          <div key={idx} className={`terminal-line ${line.type}`}>
             <span className={line.type === 'typing' ? 'typing' : ''}>{line.text}</span>
             {line.type === 'typing' && <span className="cursor">█</span>}
           </div>
         ))}
         
-        <div className="terminal-input-line">
-          <span className="prompt">{getPrompt()}</span>
-          <span className="input-display">
-            {input}
-            <span className="cursor blink">█</span>
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            className="terminal-input-hidden"
-            disabled={isTyping}
-            spellCheck={false}
-            autoComplete="off"
-          />
-        </div>
+        {!isClaimInProgress && !isTyping && (
+          <div className="terminal-input-line">
+            <span className="prompt">{prompt}</span>
+            <span className="input-display">
+              {input}
+              <span className="cursor blink">█</span>
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              className="terminal-input-hidden"
+              disabled={isTyping}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        )}
       </div>
     </div>
   )
