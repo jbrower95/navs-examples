@@ -36,7 +36,7 @@ export default function Terminal() {
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   const { writeContract, data: hash } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError, error } = useWaitForTransactionReceipt({
     hash,
   })
 
@@ -105,58 +105,29 @@ export default function Terminal() {
     eventUnwatchersRef.current = []
   }, [])
 
-  // Setup event watchers after mint transaction confirms
-  const setupEventWatchers = useCallback(() => {
-    if (!publicClient || !address) return
-
-    console.log('Setting up event watchers for address:', address)
-
-    // Watch for MintApproved event
-    const unwatchMintApproved = publicClient.watchContractEvent({
-      address: FAIRLAUNCH_CONTRACT_ADDRESS,
-      abi: FAIRLAUNCH_ABI,
-      eventName: 'MintApproved',
-      args: { user: address },
-      onLogs: (logs) => {
-        console.log('MintApproved event received:', logs)
-        if (logs && logs.length > 0) {
-          const amount = (logs[0] as any).args?.amount
-          if (amount) {
-            addLine(`✓ Mint approved! Received ${formatEther(amount)} FAIR tokens`, 'output')
-            // Refresh balances after successful mint
-            refetchBalance()
-            refetchUserMinted()
-            refetchMintStatus()
-            setIsClaimInProgress(false)
-            // Clean up watchers after successful mint
-            cleanupEventWatchers()
-          }
-        }
-      },
+  // Function to render text with clickable links
+  const renderTextWithLinks = useCallback((text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const parts = text.split(urlRegex)
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a 
+            key={index} 
+            href={part} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="terminal-link"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        )
+      }
+      return part
     })
-
-    // Watch for MintRejected event
-    const unwatchMintRejected = publicClient.watchContractEvent({
-      address: FAIRLAUNCH_CONTRACT_ADDRESS,
-      abi: FAIRLAUNCH_ABI,
-      eventName: 'MintRejected',
-      args: { user: address },
-      onLogs: (logs) => {
-        console.log('MintRejected event received:', logs)
-        if (logs && logs.length > 0) {
-          const reason = (logs[0] as any).args?.reason
-          addLine(`✗ Mint rejected: ${reason}`, 'error')
-          setIsClaimInProgress(false)
-          refetchMintStatus()
-          // Clean up watchers after rejection
-          cleanupEventWatchers()
-        }
-      },
-    })
-
-    // Store unwatcher functions
-    eventUnwatchersRef.current = [unwatchMintApproved, unwatchMintRejected]
-  }, [publicClient, address, addLine, refetchBalance, refetchUserMinted, refetchMintStatus, cleanupEventWatchers])
+  }, [])
 
   const typewriterEffect = useCallback(async (text: string, type: TerminalLine['type'] = 'output') => {
     setIsTyping(true)
@@ -361,9 +332,21 @@ export default function Terminal() {
 
   // Handle transaction status
   useEffect(() => {
+    if (!publicClient) return;
+    
     if (isConfirming && !hasShownConfirming.current) {
       hasShownConfirming.current = true
       addLine('⏳ Waiting for confirmation...', 'output')
+    }
+
+    if (isError && error && !hasShownConfirmed.current) {
+      hasShownConfirmed.current = true
+      
+      addLine('X - Claim failed.', 'output');
+      error.message.split('\n').forEach(line => addLine(line, 'system'));
+
+      setIsClaimInProgress(false);
+      return;
     }
     
     if (isConfirmed && !hasShownConfirmed.current) {
@@ -373,7 +356,56 @@ export default function Terminal() {
       addLine('⏳ Waiting for NAVS to process your claim...', 'output')
       setIsClaimInProgress(true)
       // Setup event watchers only after transaction confirms
-      setupEventWatchers()
+
+      // Watch for MintApproved event
+      const unwatchMintApproved = publicClient.watchContractEvent({
+        address: FAIRLAUNCH_CONTRACT_ADDRESS,
+        abi: FAIRLAUNCH_ABI,
+        eventName: 'MintApproved',
+        args: { user: address },
+        strict: true,
+        onLogs: (logs) => {
+          console.log('MintApproved event received:', logs)
+          if (logs && logs.length > 0) {
+            const amount = (logs[0] as any).args?.amount
+            if (amount) {
+              addLine(`✓ Mint approved! Received ${formatEther(amount)} FAIR tokens`, 'output')
+              // Refresh balances after successful mint
+              refetchBalance()
+              refetchUserMinted()
+              refetchMintStatus()
+              setIsClaimInProgress(false)
+              // Clean up watchers after successful mint
+              cleanupEventWatchers()
+            }
+          }
+        },
+      })
+
+      // Watch for MintRejected event
+      const unwatchMintRejected = publicClient.watchContractEvent({
+        address: FAIRLAUNCH_CONTRACT_ADDRESS,
+        abi: FAIRLAUNCH_ABI,
+        eventName: 'MintRejected',
+        args: { user: address },
+        strict: true,
+        onLogs: (logs) => {
+          console.log('MintRejected event received:', logs)
+          if (logs && logs.length > 0) {
+            const reason = (logs[0] as any).args?.reason
+            addLine(`✗ Mint rejected: ${reason}`, 'error')
+            setIsClaimInProgress(false)
+            refetchMintStatus()
+            // Clean up watchers after rejection
+            cleanupEventWatchers()
+          }
+        },
+      })
+
+      return () => {
+        unwatchMintApproved();
+        unwatchMintRejected();
+      }
     }
     
     // Reset refs when neither confirming nor confirmed (new transaction)
@@ -381,7 +413,7 @@ export default function Terminal() {
       hasShownConfirming.current = false
       hasShownConfirmed.current = false
     }
-  }, [isConfirming, isConfirmed, addLine, setIsClaimInProgress, setupEventWatchers])
+  }, [isConfirming, publicClient, isConfirmed, address, cleanupEventWatchers, refetchMintStatus, refetchUserMinted, refetchBalance, addLine, setIsClaimInProgress])
 
   // Cleanup event watchers on unmount or when claim is no longer in progress
   useEffect(() => {
@@ -411,12 +443,14 @@ export default function Terminal() {
       <div className="terminal-body" ref={terminalRef}>
         {lines.map((line, idx) => (
           <div key={idx} className={`terminal-line ${line.type}`}>
-            <span className={line.type === 'typing' ? 'typing' : ''}>{line.text}</span>
+            <span className={line.type === 'typing' ? 'typing' : ''}>
+              {renderTextWithLinks(line.text)}
+            </span>
             {line.type === 'typing' && <span className="cursor">█</span>}
           </div>
         ))}
         
-        {!isClaimInProgress && !isTyping && (
+        {!isClaimInProgress && !isConfirming && !isTyping && (
           <div className="terminal-input-line">
             <span className="prompt">{prompt}</span>
             <span className="input-display">

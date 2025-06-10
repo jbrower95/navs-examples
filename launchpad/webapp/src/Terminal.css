@@ -293,3 +293,21 @@
   background: #00ff0020;
   color: #00ff00;
 }
+
+/* Terminal link styles */
+.terminal-link {
+  color: #6699cc;
+  text-decoration: underline;
+  text-shadow: 0 0 5px #6699cc40;
+  transition: all 0.2s ease;
+}
+
+.terminal-link:hover {
+  color: #88bbdd;
+  text-shadow: 0 0 8px #6699cc80;
+  text-decoration: underline;
+}
+
+.terminal-link:visited {
+  color: #5588bb;
+}
