@@ -198,6 +198,8 @@ export default function Terminal() {
   }, [getAvailableCommands, typewriterEffect, address, isConnected]);
 
   const handleCommand = useCallback(async (cmd: string) => {
+    if (!publicClient) return;
+
     const command = cmd.toLowerCase().trim()
     
     // Only show command line if it's not the initial help
@@ -287,6 +289,51 @@ export default function Terminal() {
             functionName: 'mint',
             args: [],
           })
+
+          // Watch for MintApproved event
+          publicClient.watchContractEvent({
+            address: FAIRLAUNCH_CONTRACT_ADDRESS,
+            abi: FAIRLAUNCH_ABI,
+            eventName: 'MintApproved',
+            args: { user: address },
+            strict: true,
+            onLogs: (logs) => {
+              console.log('MintApproved event received:', logs)
+              if (logs && logs.length > 0) {
+                const amount = (logs[0] as any).args?.amount
+                if (amount) {
+                  addLine(`✓ Mint approved! Received ${formatEther(amount)} FAIR tokens`, 'output')
+                  // Refresh balances after successful mint
+                  refetchBalance()
+                  refetchUserMinted()
+                  refetchMintStatus()
+                  setIsClaimInProgress(false)
+                  // Clean up watchers after successful mint
+                  cleanupEventWatchers()
+                }
+              }
+            },
+          })
+
+          // Watch for MintRejected event
+          publicClient.watchContractEvent({
+            address: FAIRLAUNCH_CONTRACT_ADDRESS,
+            abi: FAIRLAUNCH_ABI,
+            eventName: 'MintRejected',
+            args: { user: address },
+            strict: true,
+            onLogs: (logs) => {
+              console.log('MintRejected event received:', logs)
+              if (logs && logs.length > 0) {
+                const reason = (logs[0] as any).args?.reason
+                addLine(`✗ Mint rejected: ${reason}`, 'error')
+                setIsClaimInProgress(false)
+                refetchMintStatus()
+                // Clean up watchers after rejection
+                cleanupEventWatchers()
+              }
+            },
+          })
         } catch (error) {
           await typewriterEffect('✗ Transaction failed', 'error')
           await typewriterEffect(String(error), 'error')
@@ -302,7 +349,7 @@ export default function Terminal() {
         await typewriterEffect(`Command not found: ${command}`, 'error')
         await typewriterEffect('Type "help" for available commands', 'output')
     }
-  }, [addLine, address, balance, connect, connectors, disconnect, getAvailableCommands, prompt, isConnected, lines.length, mintStatus, showHelp, typewriterEffect, userMinted, writeContract, isClaimInProgress]);
+  }, [addLine, address, publicClient, balance, connect, connectors, disconnect, getAvailableCommands, prompt, isConnected, lines.length, mintStatus, showHelp, typewriterEffect, userMinted, writeContract, isClaimInProgress]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && input.trim() && !isTyping) {
@@ -367,56 +414,6 @@ export default function Terminal() {
       addLine('⏳ Waiting for NAVS to process your claim...', 'output')
       setIsClaimInProgress(true)
       // Setup event watchers only after transaction confirms
-
-      // Watch for MintApproved event
-      const unwatchMintApproved = publicClient.watchContractEvent({
-        address: FAIRLAUNCH_CONTRACT_ADDRESS,
-        abi: FAIRLAUNCH_ABI,
-        eventName: 'MintApproved',
-        args: { user: address },
-        strict: true,
-        onLogs: (logs) => {
-          console.log('MintApproved event received:', logs)
-          if (logs && logs.length > 0) {
-            const amount = (logs[0] as any).args?.amount
-            if (amount) {
-              addLine(`✓ Mint approved! Received ${formatEther(amount)} FAIR tokens`, 'output')
-              // Refresh balances after successful mint
-              refetchBalance()
-              refetchUserMinted()
-              refetchMintStatus()
-              setIsClaimInProgress(false)
-              // Clean up watchers after successful mint
-              cleanupEventWatchers()
-            }
-          }
-        },
-      })
-
-      // Watch for MintRejected event
-      const unwatchMintRejected = publicClient.watchContractEvent({
-        address: FAIRLAUNCH_CONTRACT_ADDRESS,
-        abi: FAIRLAUNCH_ABI,
-        eventName: 'MintRejected',
-        args: { user: address },
-        strict: true,
-        onLogs: (logs) => {
-          console.log('MintRejected event received:', logs)
-          if (logs && logs.length > 0) {
-            const reason = (logs[0] as any).args?.reason
-            addLine(`✗ Mint rejected: ${reason}`, 'error')
-            setIsClaimInProgress(false)
-            refetchMintStatus()
-            // Clean up watchers after rejection
-            cleanupEventWatchers()
-          }
-        },
-      })
-
-      return () => {
-        unwatchMintApproved();
-        unwatchMintRejected();
-      }
     }
     
     // Reset refs when neither confirming nor confirmed (new transaction)
@@ -424,7 +421,7 @@ export default function Terminal() {
       hasShownConfirming.current = false
       hasShownConfirmed.current = false
     }
-  }, [isConfirming, publicClient, isConfirmed, address, cleanupEventWatchers, refetchMintStatus, refetchUserMinted, refetchBalance, addLine, setIsClaimInProgress])
+  }, [isConfirming, publicClient, error, isError, isConfirmed, address, cleanupEventWatchers, refetchMintStatus, refetchUserMinted, refetchBalance, addLine, setIsClaimInProgress])
 
   // Cleanup event watchers on unmount or when claim is no longer in progress
   useEffect(() => {
