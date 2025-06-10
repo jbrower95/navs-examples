@@ -5,7 +5,7 @@
  * Functions are executed by a decentralized network of operators with economic stake backing the results.
  */
 
-import { navs as setup } from 'navskit';
+import { consensus, navs as setup } from 'navskit';
 import { getAddress } from 'viem';
 import * as dotenv from 'dotenv';
 
@@ -48,7 +48,7 @@ export class AMLServices {
    * console.log(`Address is sanctioned: ${isSanctioned}`);
    * ```
    */
-  @navs()
+  @navs(consensus.exactMatch, {deterministic: true})
   static async isAddressSanctioned(address: `0x${string}`): Promise<boolean> {
     // Download OFAC sanctions list if not already cached
     if (__sanctionList === undefined) {

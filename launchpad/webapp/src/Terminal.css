@@ -1,0 +1,282 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+.terminal-container {
+  width: 100vw;
+  height: 100vh;
+  background: #0a0a0a;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 14px;
+  color: #00ff00;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* CRT monitor curvature effect */
+  border-radius: 15px;
+  transform: perspective(1000px) rotateX(2deg) rotateY(0deg);
+  transform-style: preserve-3d;
+  box-shadow: 
+    0 0 0 8px #1a1a1a,
+    0 0 0 16px #333,
+    0 0 50px rgba(0, 255, 0, 0.1),
+    inset 0 0 100px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.terminal-header {
+  background: #1a1a1a;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #333;
+  min-height: 40px;
+}
+
+.terminal-buttons {
+  display: flex;
+  gap: 8px;
+  margin-right: 16px;
+}
+
+.terminal-button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminal-button.red {
+  background: #ff5f56;
+}
+
+.terminal-button.yellow {
+  background: #ffbd2e;
+}
+
+.terminal-button.green {
+  background: #27ca3f;
+}
+
+.terminal-title {
+  color: #888;
+  font-size: 12px;
+}
+
+.terminal-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background: #0a0a0a;
+  line-height: 1.4;
+  animation: flicker 3s infinite;
+}
+
+.terminal-line {
+  margin: 2px 0;
+  word-wrap: break-word;
+}
+
+.terminal-line.command {
+  color: #00ff00;
+}
+
+.terminal-line.output {
+  color: #00ff00;
+}
+
+.terminal-line.error {
+  color: #ff4444;
+}
+
+.terminal-line.system {
+  color: #888888;
+}
+
+.terminal-line.typing {
+  color: #00ff00;
+}
+
+.prompt {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.terminal-input-line {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.terminal-input-hidden {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  z-index: 1;
+}
+
+.input-display {
+  color: #00ff00;
+  font-family: inherit;
+  font-size: inherit;
+  text-shadow: 0 0 5px #00ff0040;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.terminal-input-line {
+  position: relative;
+}
+
+.cursor {
+  color: #00ff00;
+  animation: none;
+}
+
+.cursor.blink {
+  animation: blink 1s infinite;
+}
+
+.typing {
+  animation: typewriter 0.1s;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes typewriter {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.98;
+  }
+}
+
+/* Custom scrollbar */
+.terminal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-body::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+.terminal-body::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.terminal-body::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Matrix-style glow effect */
+.terminal-line.system::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 8px;
+}
+
+/* Glitch effect for errors */
+.terminal-line.error {
+  text-shadow: 
+    0.5px 0 #ff0000,
+    -0.5px 0 #ff0000,
+    0 0.5px #ff0000,
+    0 -0.5px #ff0000;
+}
+
+/* Subtle glow for green text */
+.terminal-line.output,
+.terminal-line.command,
+.prompt,
+.input-display {
+  text-shadow: 0 0 5px #00ff0040;
+}
+
+/* CRT monitor barrel distortion effect */
+.terminal-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.1) 70%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  pointer-events: none;
+  z-index: 10;
+  border-radius: 15px;
+}
+
+/* CRT scanlines effect */
+.terminal-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 0, 0.03) 2px,
+    rgba(0, 255, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 5;
+  border-radius: 15px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .terminal-container {
+    font-size: 12px;
+    transform: perspective(800px) rotateX(1deg);
+  }
+  
+  .terminal-body {
+    padding: 10px;
+  }
+}
+
+/* Focus styles */
+.terminal-input:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+/* Selection styles */
+::selection {
+  background: #00ff0020;
+  color: #00ff00;
+}

@@ -1,3 +1,15 @@
 [submodule "aml/lib/navs"]
 	path = aml/lib/navs
 	url = https://github.com/Layr-Labs/navs
+[submodule "launchpad/pkg/lib/navs"]
+	path = launchpad/pkg/lib/navs
+	url = https://github.com/Layr-Labs/navs
+[submodule "launchpad/webapp/lib/navs"]
+	path = launchpad/webapp/lib/navs
+	url = https://github.com/Layr-Labs/navs
+[submodule "launchpad/webapp/lib/openzeppelin-contracts"]
+	path = launchpad/webapp/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "launchpad/webapp/lib/forge-std"]
+	path = launchpad/webapp/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
