@@ -1,6 +1,6 @@
 import fairlaunchAbi from './fairlaunchAbi.json'
 
-export const FAIRLAUNCH_CONTRACT_ADDRESS = '0x3830D07d9d49adA0437bd7d57423F094069AecfE' as const
+export const FAIRLAUNCH_CONTRACT_ADDRESS = '0x0CE564E9adAF2c8477234360c36C8962657fc0AA' as const
 
 export const FAIRLAUNCH_ABI = fairlaunchAbi
 
