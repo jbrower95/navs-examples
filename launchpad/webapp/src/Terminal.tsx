@@ -6,10 +6,10 @@ import { formatEther } from 'viem'
 interface TerminalLine {
   id: number
   text: string
-  type: 'command' | 'output' | 'error' | 'system'
+  type: 'command' | 'output' | 'error' | 'system' | 'typing'
 }
 
-const ALL_COMMANDS = {
+const ALL_COMMANDS: Record<string, string> = {
   help: 'Display available commands',
   login: 'Connect your wallet',
   logout: 'Disconnect your wallet', 
@@ -38,16 +38,16 @@ export default function Terminal() {
 
   // Get available commands based on wallet connection status
   const getAvailableCommands = () => {
-    const commands = { ...ALL_COMMANDS }
+    const commands: Record<string, string> = { ...ALL_COMMANDS }
     
     if (isConnected) {
       // Remove login, keep logout
-      delete commands.login
+      delete (commands as any).login
     } else {
       // Remove logout and wallet-specific commands, keep login
-      delete commands.logout
-      delete commands.balance
-      delete commands.claim
+      delete (commands as any).logout
+      delete (commands as any).balance
+      delete (commands as any).claim
     }
     
     return commands
