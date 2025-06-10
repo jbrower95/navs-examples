@@ -4,7 +4,7 @@
 	"dist",
 	"package.json"
   ],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A memecoin launchpad with token allocations driven by a TypeScript package",
   "main": "dist/index.js",
   "scripts": {
@@ -13,7 +13,7 @@
   "author": "Justin Brower",
   "license": "ISC",
   "dependencies": {
-    "navskit": "~0.0.9",
+    "navskit": "~0.0.12",
     "viem": "^2.31.0"
   }
 }
