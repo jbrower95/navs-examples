@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useChainId, useSwitchChain } from 'wagmi'
 import { FAIRLAUNCH_CONTRACT_ADDRESS, FAIRLAUNCH_ABI } from './contracts'
 import { formatEther } from 'viem'
+import { baseSepolia } from 'viem/chains'
 
 interface TerminalLine {
   id: number
@@ -30,6 +31,16 @@ export default function Terminal() {
   const eventUnwatchersRef = useRef<(() => void)[]>([])
   const hasShownConfirming = useRef(false)
   const hasShownConfirmed = useRef(false)
+
+  const chain = useChainId();
+  const {switchChain} = useSwitchChain();
+
+  // force baseSepolia
+  useEffect(() => {
+    if (chain !== baseSepolia.id) {
+      switchChain({chainId: baseSepolia.id});
+    }
+  }, [chain, switchChain]);
 
   const publicClient = usePublicClient();
   const { address, isConnected } = useAccount()
